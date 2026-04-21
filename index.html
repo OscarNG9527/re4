@@ -3,257 +3,453 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>生化危机4风格 越肩视角TPS</title>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <title>大湾区音雄争霸 - 回合制乐队对战</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { overflow: hidden; background: #000; }
-        canvas { display: block; }
-        /* 游戏UI */
-        .ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: #fff;
-            font-family: Arial, sans-serif;
-            font-size: 20px;
-            text-shadow: 2px 2px 4px #000;
-            z-index: 100;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
         }
-        .tips {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
             color: #fff;
-            font-size: 16px;
-            text-shadow: 2px 2px 4px #000;
-            z-index: 100;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 2.5rem;
+            color: #00f5d4;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px #00f5d4;
+        }
+
+        .battle-area {
+            display: flex;
+            justify-content: space-between;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        /* 角色卡片样式 */
+        .team-panel {
+            width: 48%;
+            background: rgba(25, 42, 66, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid #00f5d4;
+        }
+
+        .panel-title {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #fbff00;
+        }
+
+        .character-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #00f5d4;
+        }
+
+        .char-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .char-band {
+            font-size: 0.9rem;
+            color: #a8dadc;
+            margin-bottom: 10px;
+        }
+
+        /* 血条/能量条 */
+        .stat-bar {
+            height: 12px;
+            background: #333;
+            border-radius: 6px;
+            margin: 5px 0;
+            overflow: hidden;
+        }
+
+        .hp-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff3366, #ff6b9d);
+            transition: width 0.3s ease;
+        }
+
+        .energy-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4cc9f0, #72efdd);
+            transition: width 0.3s ease;
+        }
+
+        .stat-text {
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        /* 战斗控制区 */
+        .control-panel {
+            background: rgba(25, 42, 66, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid #fbff00;
+        }
+
+        .skill-points {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #fbff00;
+        }
+
+        .skill-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-normal {
+            background: #2ec4b6;
+            color: #000;
+        }
+
+        .btn-skill {
+            background: #ff9f1c;
+            color: #000;
+        }
+
+        .btn-ultimate {
+            background: #e71d36;
+            color: #fff;
+        }
+
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        /* 战斗日志 */
+        .battle-log {
+            height: 150px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 10px;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+        }
+
+        .player-log {
+            color: #00f5d4;
+        }
+
+        .enemy-log {
+            color: #ff3366;
+        }
+
+        .game-over {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 40px;
+            border-radius: 20px;
+            border: 3px solid #fbff00;
+            text-align: center;
+            z-index: 999;
+        }
+
+        .restart-btn {
+            margin-top: 20px;
+            padding: 15px 30px;
+            background: #00f5d4;
+            color: #000;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="ui">
-        生命值: <span id="hp">100</span> | 击杀数: <span id="kill">0</span>
+    <div class="game-container">
+        <h1 class="title">大湾区音雄争霸</h1>
+        
+        <!-- 战斗区域 -->
+        <div class="battle-area">
+            <!-- 我方阵营：深圳夜一乐队 -->
+            <div class="team-panel" id="playerTeam">
+                <h2 class="panel-title">我方 - 深圳·夜一乐队</h2>
+                <div class="character-card" id="player1">
+                    <div class="char-name">主唱 - 夜小一</div>
+                    <div class="char-band">流行摇滚 | 主唱</div>
+                    <div class="stat-text">HP: <span id="p1Hp">1000</span>/1000</div>
+                    <div class="stat-bar"><div class="hp-bar" id="p1HpBar" style="width:100%"></div></div>
+                    <div class="stat-text">能量: <span id="p1Energy">0</span>/100</div>
+                    <div class="stat-bar"><div class="energy-bar" id="p1EnergyBar" style="width:0%"></div></div>
+                </div>
+                <div class="character-card" id="player2">
+                    <div class="char-name">吉他手 - 音浪</div>
+                    <div class="char-band">流行摇滚 | 主音吉他</div>
+                    <div class="stat-text">HP: <span id="p2Hp">1000</span>/1000</div>
+                    <div class="stat-bar"><div class="hp-bar" id="p2HpBar" style="width:100%"></div></div>
+                    <div class="stat-text">能量: <span id="p2Energy">0</span>/100</div>
+                    <div class="stat-bar"><div class="energy-bar" id="p2EnergyBar" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <!-- 敌方阵营：珠海Vivid Melody -->
+            <div class="team-panel" id="enemyTeam">
+                <h2 class="panel-title">敌方 - 珠海·Vivid Melody</h2>
+                <div class="character-card" id="enemy1">
+                    <div class="char-name">主唱 - Melody</div>
+                    <div class="char-band">清新流行 | 主唱</div>
+                    <div class="stat-text">HP: <span id="e1Hp">1000</span>/1000</div>
+                    <div class="stat-bar"><div class="hp-bar" id="e1HpBar" style="width:100%"></div></div>
+                    <div class="stat-text">能量: <span id="e1Energy">0</span>/100</div>
+                    <div class="stat-bar"><div class="energy-bar" id="e1EnergyBar" style="width:0%"></div></div>
+                </div>
+                <div class="character-card" id="enemy2">
+                    <div class="char-name">键盘手 - Vivid</div>
+                    <div class="char-band">清新流行 | 键盘</div>
+                    <div class="stat-text">HP: <span id="e2Hp">1000</span>/1000</div>
+                    <div class="stat-bar"><div class="hp-bar" id="e2HpBar" style="width:100%"></div></div>
+                    <div class="stat-text">能量: <span id="e2Energy">0</span>/100</div>
+                    <div class="stat-bar"><div class="energy-bar" id="e2EnergyBar" style="width:0%"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 控制区域 -->
+        <div class="control-panel">
+            <div class="skill-points">技能点: <span id="skillPoints">2</span>/3</div>
+            <div class="skill-buttons">
+                <button class="btn btn-normal" id="normalAttack">普攻 - 音波冲击</button>
+                <button class="btn btn-skill" id="skillAttack">战技 - 摇滚风暴</button>
+                <button class="btn btn-ultimate" id="ultimateAttack" disabled>终结技 - 湾区狂想曲</button>
+            </div>
+            <div class="battle-log" id="battleLog">
+                <div class="log-entry">战斗开始！选择技能攻击敌方乐队！</div>
+            </div>
+        </div>
+
+        <!-- 游戏结束弹窗 -->
+        <div class="game-over hidden" id="gameOver">
+            <h1 id="resultText"></h1>
+            <button class="restart-btn" onclick="restartGame()">重新开始</button>
+        </div>
     </div>
-    <div class="tips">点击屏幕开始游戏 | WASD移动 | 鼠标瞄准 | 左键射击</div>
 
     <script>
-        // ===================== 核心变量 =====================
-        let scene, camera, renderer;
-        let player, ground;
-        let bullets = [];
-        let enemies = [];
-        let keys = {};
-        let mouse = { x: 0, y: 0 };
-        let hp = 100;
-        let killCount = 0;
-        let isPointerLocked = false;
+        // ===================== 游戏核心数据 =====================
+        const gameData = {
+            // 我方角色（深圳夜一乐队）
+            player: [
+                { name: "夜小一", maxHp: 1000, hp: 1000, maxEnergy: 100, energy: 0 },
+                { name: "音浪", maxHp: 1000, hp: 1000, maxEnergy: 100, energy: 0 }
+            ],
+            // 敌方角色（珠海Vivid Melody）
+            enemy: [
+                { name: "Melody", maxHp: 1000, hp: 1000, maxEnergy: 100, energy: 0 },
+                { name: "Vivid", maxHp: 1000, hp: 1000, maxEnergy: 100, energy: 0 }
+            ],
+            skillPoints: 2,       // 技能点（星穹铁道机制）
+            maxSkillPoints: 3,
+            isPlayerTurn: true,   // 回合判定
+            ultimateUnlocked: false // 终结技解锁
+        };
 
-        // 越肩视角参数（生化危机4核心：右肩偏移）
-        const cameraOffset = new THREE.Vector3(1.8, 2.2, -3.5); // 右肩后上方
-        const cameraLookAtOffset = new THREE.Vector3(0, 1, 0); // 看向角色胸部
+        // DOM元素
+        const elements = {
+            p1Hp: document.getElementById('p1Hp'), p1HpBar: document.getElementById('p1HpBar'), p1Energy: document.getElementById('p1Energy'), p1EnergyBar: document.getElementById('p1EnergyBar'),
+            p2Hp: document.getElementById('p2Hp'), p2HpBar: document.getElementById('p2HpBar'), p2Energy: document.getElementById('p2Energy'), p2EnergyBar: document.getElementById('p2EnergyBar'),
+            e1Hp: document.getElementById('e1Hp'), e1HpBar: document.getElementById('e1HpBar'), e1Energy: document.getElementById('e1Energy'), e1EnergyBar: document.getElementById('e1EnergyBar'),
+            e2Hp: document.getElementById('e2Hp'), e2HpBar: document.getElementById('e2HpBar'), e2Energy: document.getElementById('e2Energy'), e2EnergyBar: document.getElementById('e2EnergyBar'),
+            skillPoints: document.getElementById('skillPoints'),
+            battleLog: document.getElementById('battleLog'),
+            ultimateBtn: document.getElementById('ultimateAttack'),
+            gameOver: document.getElementById('gameOver'),
+            resultText: document.getElementById('resultText')
+        };
 
-        // ===================== 初始化游戏 =====================
-        init();
-        animate();
-
-        function init() {
-            // 1. 创建场景
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a2e);
-
-            // 2. 创建相机
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-            // 3. 创建渲染器
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true; // 开启阴影
-            document.body.appendChild(renderer.domElement);
-
-            // 4. 添加灯光
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(10, 20, 10);
-            directionalLight.castShadow = true;
-            scene.add(directionalLight);
-
-            // 5. 创建地面
-            const groundGeometry = new THREE.PlaneGeometry(100, 100);
-            const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x3d3d3d });
-            ground = new THREE.Mesh(groundGeometry, groundMaterial);
-            ground.rotation.x = -Math.PI / 2;
-            ground.receiveShadow = true;
-            scene.add(ground);
-
-            // 6. 创建玩家（胶囊体 = 简化人物模型）
-            const playerGeometry = new THREE.CapsuleGeometry(0.5, 1.5, 4, 10);
-            const playerMaterial = new THREE.MeshLambertMaterial({ color: 0xff3333 });
-            player = new THREE.Mesh(playerGeometry, playerMaterial);
-            player.position.set(0, 1, 0);
-            player.castShadow = true;
-            scene.add(player);
-
-            // 7. 生成敌人
-            spawnEnemies(5);
-
-            // 8. 绑定事件
-            document.addEventListener('keydown', (e) => keys[e.code] = true);
-            document.addEventListener('keyup', (e) => keys[e.code] = false);
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('click', lockPointer);
-            document.addEventListener('pointerlockchange', () => isPointerLocked = document.pointerLockElement === renderer.domElement);
-            window.addEventListener('resize', onWindowResize);
+        // ===================== 工具函数 =====================
+        // 更新UI界面
+        function updateUI() {
+            // 我方血条+能量
+            elements.p1Hp.textContent = gameData.player[0].hp; elements.p1HpBar.style.width = `${gameData.player[0].hp/gameData.player[0].maxHp*100}%`;
+            elements.p1Energy.textContent = gameData.player[0].energy; elements.p1EnergyBar.style.width = `${gameData.player[0].energy}%`;
+            elements.p2Hp.textContent = gameData.player[1].hp; elements.p2HpBar.style.width = `${gameData.player[1].hp/gameData.player[1].maxHp*100}%`;
+            elements.p2Energy.textContent = gameData.player[1].energy; elements.p2EnergyBar.style.width = `${gameData.player[1].energy}%`;
+            
+            // 敌方血条+能量
+            elements.e1Hp.textContent = gameData.enemy[0].hp; elements.e1HpBar.style.width = `${gameData.enemy[0].hp/gameData.enemy[0].maxHp*100}%`;
+            elements.e2Hp.textContent = gameData.enemy[1].hp; elements.e2HpBar.style.width = `${gameData.enemy[1].hp/gameData.enemy[1].maxHp*100}%`;
+            
+            // 技能点
+            elements.skillPoints.textContent = gameData.skillPoints;
+            // 终结技按钮状态
+            elements.ultimateBtn.disabled = !gameData.ultimateUnlocked;
         }
 
-        // ===================== 游戏功能 =====================
-        // 鼠标锁定（射击游戏标准操作）
-        function lockPointer() {
-            renderer.domElement.requestPointerLock();
+        // 添加战斗日志
+        function addLog(text, isPlayer = true) {
+            const log = document.createElement('div');
+            log.className = `log-entry ${isPlayer ? 'player-log' : 'enemy-log'}`;
+            log.textContent = text;
+            elements.battleLog.appendChild(log);
+            elements.battleLog.scrollTop = elements.battleLog.scrollHeight;
         }
 
-        // 鼠标移动控制视角
-        function onMouseMove(e) {
-            if (!isPointerLocked) return;
-            mouse.x += e.movementX * 0.002;
-            mouse.y -= e.movementY * 0.002;
-            mouse.y = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, mouse.y)); // 限制上下视角
+        // 伤害计算
+        function dealDamage(target, damage) {
+            target.hp = Math.max(0, target.hp - damage);
+            return damage;
         }
 
-        // 玩家移动
-        function movePlayer() {
-            const speed = 5;
-            const direction = new THREE.Vector3();
-
-            // 前后左右移动（基于角色朝向）
-            if (keys['KeyW']) direction.z -= 1;
-            if (keys['KeyS']) direction.z += 1;
-            if (keys['KeyA']) direction.x -= 1;
-            if (keys['KeyD']) direction.x += 1;
-
-            direction.normalize();
-            direction.applyQuaternion(player.quaternion);
-            player.position.addScaledVector(direction, speed * 0.016);
-
-            // 玩家朝向鼠标方向
-            player.rotation.y = mouse.x;
+        // 积攒能量
+        function addEnergy(character, amount) {
+            character.energy = Math.min(character.maxEnergy, character.energy + amount);
+            checkUltimate();
         }
 
-        // 越肩视角相机控制（核心功能）
-        function updateCamera() {
-            const targetPos = player.position.clone().add(cameraOffset);
-            camera.position.lerp(targetPos, 0.1); // 平滑跟随
-            camera.lookAt(player.position.clone().add(cameraLookAtOffset)); // 看向角色胸部
+        // 检查终结技是否解锁
+        function checkUltimate() {
+            gameData.ultimateUnlocked = gameData.player[0].energy >= 100 || gameData.player[1].energy >= 100;
         }
 
-        // 生成敌人
-        function spawnEnemies(count) {
-            for (let i = 0; i < count; i++) {
-                const enemyGeometry = new THREE.BoxGeometry(1, 2, 1);
-                const enemyMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
-                const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
-                enemy.position.set(
-                    (Math.random() - 0.5) * 80,
-                    1,
-                    (Math.random() - 0.5) * 80
-                );
-                enemy.castShadow = true;
-                enemy.hp = 2;
-                scene.add(enemy);
-                enemies.push(enemy);
+        // 胜负判定
+        function checkGameOver() {
+            const playerAlive = gameData.player.some(c => c.hp > 0);
+            const enemyAlive = gameData.enemy.some(c => c.hp > 0);
+            
+            if (!enemyAlive) {
+                elements.resultText.textContent = "胜利！深圳夜一乐队称霸湾区！";
+                elements.gameOver.classList.remove('hidden');
+                return true;
             }
+            if (!playerAlive) {
+                elements.resultText.textContent = "失败！珠海Vivid Melody获得胜利！";
+                elements.gameOver.classList.remove('hidden');
+                return true;
+            }
+            return false;
         }
 
-        // 敌人AI追踪玩家
-        function updateEnemies() {
-            enemies.forEach((enemy, index) => {
-                const dir = new THREE.Vector3();
-                dir.subVectors(player.position, enemy.position).normalize();
-                enemy.position.addScaledVector(dir, 2 * 0.016);
-                enemy.lookAt(player.position);
+        // 敌方回合（AI自动攻击）
+        async function enemyTurn() {
+            gameData.isPlayerTurn = false;
+            addLog("=== 敌方回合开始 ===", false);
+            
+            // 敌方普攻
+            const damage = dealDamage(gameData.player[0], 150);
+            addLog(`Melody使用【清新吟唱】对夜小一造成 ${damage} 伤害！`, false);
+            await new Promise(r => setTimeout(r, 1000));
+            
+            const damage2 = dealDamage(gameData.player[1], 150);
+            addLog(`Vivid使用【键盘旋律】对音浪造成 ${damage2} 伤害！`, false);
+            await new Promise(r => setTimeout(r, 1000));
 
-                // 玩家碰撞扣血
-                if (enemy.position.distanceTo(player.position) < 1.5) {
-                    hp -= 0.5;
-                    updateUI();
-                    if (hp <= 0) alert('游戏结束！击杀数：' + killCount);
-                }
-            });
+            // 恢复技能点+切换回合
+            gameData.skillPoints = Math.min(gameData.maxSkillPoints, gameData.skillPoints + 1);
+            gameData.isPlayerTurn = true;
+            addLog("=== 我方回合开始 ===");
+            
+            updateUI();
+            checkGameOver();
         }
 
-        // 射击（左键发射子弹）
-        document.addEventListener('mousedown', (e) => {
-            if (!isPointerLocked || e.button !== 0) return;
-            const bulletGeometry = new THREE.SphereGeometry(0.2);
-            const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-            const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+        // ===================== 技能系统（星穹铁道玩法） =====================
+        // 1. 普攻（不耗技能点，攒能量）
+        document.getElementById('normalAttack').addEventListener('click', () => {
+            if (!gameData.isPlayerTurn) return;
             
-            // 子弹从玩家前方发射
-            bullet.position.copy(player.position);
-            bullet.position.y += 1;
-            bullet.position.add(player.getWorldDirection(new THREE.Vector3()).multiplyScalar(1));
+            const damage = dealDamage(gameData.enemy[0], 200);
+            addLog(`夜小一使用【音波冲击】对Melody造成 ${damage} 伤害！`);
+            addEnergy(gameData.player[0], 20);
             
-            bullet.userData.direction = player.getWorldDirection(new THREE.Vector3());
-            scene.add(bullet);
-            bullets.push(bullet);
+            updateUI();
+            if (checkGameOver()) return;
+            setTimeout(enemyTurn, 1500);
         });
 
-        // 更新子弹
-        function updateBullets() {
-            bullets.forEach((bullet, index) => {
-                bullet.position.addScaledVector(bullet.userData.direction, 15 * 0.016);
-                
-                // 子弹超出范围销毁
-                if (bullet.position.distanceTo(player.position) > 50) {
-                    scene.remove(bullet);
-                    bullets.splice(index, 1);
-                }
+        // 2. 战技（耗1技能点，高伤害）
+        document.getElementById('skillAttack').addEventListener('click', () => {
+            if (!gameData.isPlayerTurn || gameData.skillPoints < 1) return;
+            
+            gameData.skillPoints--;
+            const damage = dealDamage(gameData.enemy[0], 400);
+            const damage2 = dealDamage(gameData.enemy[1], 400);
+            addLog(`音浪使用【摇滚风暴】对全体敌方造成 ${damage} 伤害！`);
+            addEnergy(gameData.player[1], 30);
+            
+            updateUI();
+            if (checkGameOver()) return;
+            setTimeout(enemyTurn, 1500);
+        });
 
-                // 子弹击中敌人
-                enemies.forEach((enemy, eIndex) => {
-                    if (bullet.position.distanceTo(enemy.position) < 1.5) {
-                        enemy.hp--;
-                        scene.remove(bullet);
-                        bullets.splice(index, 1);
-                        
-                        if (enemy.hp <= 0) {
-                            scene.remove(enemy);
-                            enemies.splice(eIndex, 1);
-                            killCount++;
-                            updateUI();
-                            spawnEnemies(1); // 击杀后刷新敌人
-                        }
-                    }
-                });
-            });
+        // 3. 终结技（满能量释放，超高伤害）
+        document.getElementById('ultimateAttack').addEventListener('click', () => {
+            if (!gameData.isPlayerTurn) return;
+            
+            // 清空能量
+            gameData.player[0].energy = 0;
+            gameData.player[1].energy = 0;
+            
+            const damage = dealDamage(gameData.enemy[0], 800);
+            const damage2 = dealDamage(gameData.enemy[1], 800);
+            addLog(`🔥 夜一乐队释放终结技【湾区狂想曲】！对全体敌方造成巨额伤害！`);
+            
+            updateUI();
+            if (checkGameOver()) return;
+            setTimeout(enemyTurn, 2000);
+        });
+
+        // 重新开始游戏
+        function restartGame() {
+            location.reload();
         }
 
-        // 更新UI
-        function updateUI() {
-            document.getElementById('hp').textContent = Math.max(0, Math.round(hp));
-            document.getElementById('kill').textContent = killCount;
-        }
-
-        // 窗口适配
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // ===================== 游戏循环 =====================
-        function animate() {
-            requestAnimationFrame(animate);
-            if (isPointerLocked) {
-                movePlayer();
-                updateEnemies();
-                updateBullets();
-            }
-            updateCamera();
-            renderer.render(scene, camera);
-        }
+        // 初始化游戏
+        updateUI();
     </script>
 </body>
 </html>
