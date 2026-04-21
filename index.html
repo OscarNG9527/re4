@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生化危机4风格 越肩视角TPS</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #000; }
+        canvas { display: block; }
+        /* 游戏UI */
+        .ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 100;
+        }
+        .tips {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 16px;
+            text-shadow: 2px 2px 4px #000;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui">
+        生命值: <span id="hp">100</span> | 击杀数: <span id="kill">0</span>
+    </div>
+    <div class="tips">点击屏幕开始游戏 | WASD移动 | 鼠标瞄准 | 左键射击</div>
+
+    <script>
+        // ===================== 核心变量 =====================
+        let scene, camera, renderer;
+        let player, ground;
+        let bullets = [];
+        let enemies = [];
+        let keys = {};
+        let mouse = { x: 0, y: 0 };
+        let hp = 100;
+        let killCount = 0;
+        let isPointerLocked = false;
+
+        // 越肩视角参数（生化危机4核心：右肩偏移）
+        const cameraOffset = new THREE.Vector3(1.8, 2.2, -3.5); // 右肩后上方
+        const cameraLookAtOffset = new THREE.Vector3(0, 1, 0); // 看向角色胸部
+
+        // ===================== 初始化游戏 =====================
+        init();
+        animate();
+
+        function init() {
+            // 1. 创建场景
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            // 2. 创建相机
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            // 3. 创建渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true; // 开启阴影
+            document.body.appendChild(renderer.domElement);
+
+            // 4. 添加灯光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            // 5. 创建地面
+            const groundGeometry = new THREE.PlaneGeometry(100, 100);
+            const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x3d3d3d });
+            ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 6. 创建玩家（胶囊体 = 简化人物模型）
+            const playerGeometry = new THREE.CapsuleGeometry(0.5, 1.5, 4, 10);
+            const playerMaterial = new THREE.MeshLambertMaterial({ color: 0xff3333 });
+            player = new THREE.Mesh(playerGeometry, playerMaterial);
+            player.position.set(0, 1, 0);
+            player.castShadow = true;
+            scene.add(player);
+
+            // 7. 生成敌人
+            spawnEnemies(5);
+
+            // 8. 绑定事件
+            document.addEventListener('keydown', (e) => keys[e.code] = true);
+            document.addEventListener('keyup', (e) => keys[e.code] = false);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('click', lockPointer);
+            document.addEventListener('pointerlockchange', () => isPointerLocked = document.pointerLockElement === renderer.domElement);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // ===================== 游戏功能 =====================
+        // 鼠标锁定（射击游戏标准操作）
+        function lockPointer() {
+            renderer.domElement.requestPointerLock();
+        }
+
+        // 鼠标移动控制视角
+        function onMouseMove(e) {
+            if (!isPointerLocked) return;
+            mouse.x += e.movementX * 0.002;
+            mouse.y -= e.movementY * 0.002;
+            mouse.y = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, mouse.y)); // 限制上下视角
+        }
+
+        // 玩家移动
+        function movePlayer() {
+            const speed = 5;
+            const direction = new THREE.Vector3();
+
+            // 前后左右移动（基于角色朝向）
+            if (keys['KeyW']) direction.z -= 1;
+            if (keys['KeyS']) direction.z += 1;
+            if (keys['KeyA']) direction.x -= 1;
+            if (keys['KeyD']) direction.x += 1;
+
+            direction.normalize();
+            direction.applyQuaternion(player.quaternion);
+            player.position.addScaledVector(direction, speed * 0.016);
+
+            // 玩家朝向鼠标方向
+            player.rotation.y = mouse.x;
+        }
+
+        // 越肩视角相机控制（核心功能）
+        function updateCamera() {
+            const targetPos = player.position.clone().add(cameraOffset);
+            camera.position.lerp(targetPos, 0.1); // 平滑跟随
+            camera.lookAt(player.position.clone().add(cameraLookAtOffset)); // 看向角色胸部
+        }
+
+        // 生成敌人
+        function spawnEnemies(count) {
+            for (let i = 0; i < count; i++) {
+                const enemyGeometry = new THREE.BoxGeometry(1, 2, 1);
+                const enemyMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
+                const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
+                enemy.position.set(
+                    (Math.random() - 0.5) * 80,
+                    1,
+                    (Math.random() - 0.5) * 80
+                );
+                enemy.castShadow = true;
+                enemy.hp = 2;
+                scene.add(enemy);
+                enemies.push(enemy);
+            }
+        }
+
+        // 敌人AI追踪玩家
+        function updateEnemies() {
+            enemies.forEach((enemy, index) => {
+                const dir = new THREE.Vector3();
+                dir.subVectors(player.position, enemy.position).normalize();
+                enemy.position.addScaledVector(dir, 2 * 0.016);
+                enemy.lookAt(player.position);
+
+                // 玩家碰撞扣血
+                if (enemy.position.distanceTo(player.position) < 1.5) {
+                    hp -= 0.5;
+                    updateUI();
+                    if (hp <= 0) alert('游戏结束！击杀数：' + killCount);
+                }
+            });
+        }
+
+        // 射击（左键发射子弹）
+        document.addEventListener('mousedown', (e) => {
+            if (!isPointerLocked || e.button !== 0) return;
+            const bulletGeometry = new THREE.SphereGeometry(0.2);
+            const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+            
+            // 子弹从玩家前方发射
+            bullet.position.copy(player.position);
+            bullet.position.y += 1;
+            bullet.position.add(player.getWorldDirection(new THREE.Vector3()).multiplyScalar(1));
+            
+            bullet.userData.direction = player.getWorldDirection(new THREE.Vector3());
+            scene.add(bullet);
+            bullets.push(bullet);
+        });
+
+        // 更新子弹
+        function updateBullets() {
+            bullets.forEach((bullet, index) => {
+                bullet.position.addScaledVector(bullet.userData.direction, 15 * 0.016);
+                
+                // 子弹超出范围销毁
+                if (bullet.position.distanceTo(player.position) > 50) {
+                    scene.remove(bullet);
+                    bullets.splice(index, 1);
+                }
+
+                // 子弹击中敌人
+                enemies.forEach((enemy, eIndex) => {
+                    if (bullet.position.distanceTo(enemy.position) < 1.5) {
+                        enemy.hp--;
+                        scene.remove(bullet);
+                        bullets.splice(index, 1);
+                        
+                        if (enemy.hp <= 0) {
+                            scene.remove(enemy);
+                            enemies.splice(eIndex, 1);
+                            killCount++;
+                            updateUI();
+                            spawnEnemies(1); // 击杀后刷新敌人
+                        }
+                    }
+                });
+            });
+        }
+
+        // 更新UI
+        function updateUI() {
+            document.getElementById('hp').textContent = Math.max(0, Math.round(hp));
+            document.getElementById('kill').textContent = killCount;
+        }
+
+        // 窗口适配
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ===================== 游戏循环 =====================
+        function animate() {
+            requestAnimationFrame(animate);
+            if (isPointerLocked) {
+                movePlayer();
+                updateEnemies();
+                updateBullets();
+            }
+            updateCamera();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
